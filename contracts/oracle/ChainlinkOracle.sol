@@ -7,8 +7,6 @@ import "./../utils/Governable.sol";
 import "./../interfaces/IERC20.sol";
 import "./../interfaces/IChainlinkOracle.sol";
 
-import { ZeroMaxDelay, PairNotSupported, LastUpdateIsTooOld, InvalidPrice, InvalidMappingsInput } from "./../common/Error.sol";
-
 /**
  * only token/USD
  * ETH/USD, token/ETH or token/USD
@@ -22,7 +20,8 @@ contract ChainlinkOracle is Governable, IChainlinkOracle {
     uint256 public maxDelay;
 
     constructor(address governor_, uint32 maxDelay_) Governable(governor_) {
-        if (maxDelay_ == 0) revert ZeroMaxDelay();
+        require(maxDelay_ > 0, "ZeroMaxDelay");
+        require(maxDelay_ < block.timestamp, "InvalidDelay");
         maxDelay = maxDelay_;
     }
 
@@ -44,7 +43,7 @@ contract ChainlinkOracle is Governable, IChainlinkOracle {
         external
         onlyGovernance
     {
-        if (tokens_.length != feeds_.length) revert InvalidMappingsInput();
+        require(tokens_.length == feeds_.length, "InvalidMappingsInput");
 
         for (uint256 i; i < tokens_.length; i++) {
             feedMapping[tokens_[i]] = feeds_[i];
@@ -54,7 +53,8 @@ contract ChainlinkOracle is Governable, IChainlinkOracle {
     }
 
     function addMappings(address[] calldata addresses_, address[] calldata underlying_) external onlyGovernance {
-        if (addresses_.length != underlying_.length) revert InvalidMappingsInput();
+        require(addresses_.length == underlying_.length, "InvalidMappingsInput");
+
         for (uint256 i; i < addresses_.length; i++) {
             _tokenMappings[addresses_[i]] = underlying_[i];
         }
@@ -69,7 +69,7 @@ contract ChainlinkOracle is Governable, IChainlinkOracle {
         AggregatorV3Interface feedA = feedMapping[mappedToken(tokenIn_)];
         AggregatorV3Interface feedB = feedMapping[mappedToken(tokenOut_)];
 
-        if (address(feedA) == address(0) || address(feedB) == address(0)) revert PairNotSupported();
+        require(address(feedA) == address(0) && address(feedB) != address(0), "PairNotSupported");
 
         int8 inDecimals = _getDecimals(tokenIn_);
         int8 outDecimals = _getDecimals(tokenOut_);
@@ -81,8 +81,8 @@ contract ChainlinkOracle is Governable, IChainlinkOracle {
 
     function _callRegistry(AggregatorV3Interface feed_) internal view returns (uint256) {
         (, int256 price, , uint256 updatedAt, ) = feed_.latestRoundData();
-        if (price <= 0) revert InvalidPrice();
-        if (maxDelay < block.timestamp && updatedAt < block.timestamp - maxDelay) revert LastUpdateIsTooOld();
+        require(price > 0, "InvalidPrice");
+        require(updatedAt >= block.timestamp - maxDelay, "LastUpdateIsTooOld");
         return uint256(price);
     }
 

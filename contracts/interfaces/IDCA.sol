@@ -5,5 +5,14 @@ import "./IDCAConfigHandler.sol";
 import "./IDCAPositionHandler.sol";
 import "./IDCASwapHandler.sol";
 import "./IDCAParameters.sol";
+import "./IDCAParameters.sol";
 
-interface IDCA is IDCAParameters, IDCAConfigHandler, IDCAPositionHandler, IDCASwapHandler {}
+interface IDCA {
+    event TokensRescued(address indexed to, address indexed token, uint256 amount);
+
+    function rescueFunds(
+        address token_,
+        address to_,
+        uint256 amount_
+    ) external;
+}

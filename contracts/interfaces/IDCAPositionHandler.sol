@@ -86,14 +86,14 @@ interface IDCAPositionHandler {
 
     function terminate(
         uint256 positionId_,
-        address payable recipientSwapped_,
-        address payable recipientUnswapped_,
+        address recipientSwapped_,
+        address recipientUnswapped_,
         bool nativeFlag_
     ) external;
 
     function withdrawSwapped(
         uint256 positionId_,
-        address payable recipient_,
+        address recipient_,
         bool nativeFlag_
     ) external;
 }

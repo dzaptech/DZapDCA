@@ -3,8 +3,6 @@ pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/utils/Context.sol";
 
-import { UnauthorizedCaller, ZeroAddress } from "../common/Error.sol";
-
 abstract contract Governable is Context {
     address private _governance;
 
@@ -14,7 +12,7 @@ abstract contract Governable is Context {
      * @dev Throws if called by any account other than the governance.
      */
     modifier onlyGovernance() {
-        if (governance() != _msgSender()) revert UnauthorizedCaller();
+        require(governance() == _msgSender(), "UnauthorizedCaller");
         _;
     }
 
@@ -22,7 +20,8 @@ abstract contract Governable is Context {
      * @dev Initializes the contract setting the deployer as the initial governance.
      */
     constructor(address governance_) {
-        if (governance_ == address(0)) revert ZeroAddress();
+        require(governance_ != address(0), "ZeroAddress");
+
         _governance = governance_;
         emit GovernanceChanged(address(0), governance_);
     }
@@ -39,7 +38,8 @@ abstract contract Governable is Context {
      * Can only be called by the current governance.
      */
     function changeGovernance(address newGov) public virtual onlyGovernance {
-        if (newGov == address(0)) revert ZeroAddress();
+        require(newGov != address(0), "ZeroAddress");
+
         emit GovernanceChanged(_governance, newGov);
         _governance = newGov;
     }

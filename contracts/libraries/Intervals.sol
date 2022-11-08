@@ -1,11 +1,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { InvalidInterval, InvalidMask } from "./../common/Error.sol";
-
 /// @title Intervals library
 /// @notice Provides functions to easily convert from swap intervals to their byte representation and viceversa
 library Intervals {
+    error InvalidInterval();
+    error InvalidMask();
+
     /// @notice Takes a swap interval and returns its byte representation
     /// @dev Will revert with InvalidInterval if the swap interval is not valid
     /// @param swapInterval_ The swap interval

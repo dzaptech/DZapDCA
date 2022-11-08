@@ -8,7 +8,6 @@ import "../libraries/SafeERC20.sol";
 import "./../interfaces/IDCASwapHandler.sol";
 import { IAggregationRouterV4 } from "./../interfaces/IAggregationRouterV4.sol";
 import { SwapInfo, Pair, SwapDetails } from "./../common/Types.sol";
-import { InvalidDstReceiver, PartialFillNotAllowed, NoAvailableSwap, InvalidSwapAmount, InvalidReturnAmount } from "./../common/Error.sol";
 
 abstract contract DCASwapHandler is ReentrancyGuard, DCAConfigHandler, IDCASwapHandler {
     using SafeERC20 for IERC20;
@@ -72,8 +71,8 @@ abstract contract DCASwapHandler is ReentrancyGuard, DCAConfigHandler, IDCASwapH
         for (uint256 i; i < data_.length; ++i) {
             SwapDetails memory data = data_[i];
 
-            if (data.desc.dstReceiver != address(0)) revert InvalidDstReceiver();
-            if (data.desc.flags & _PARTIAL_FILL != 0) revert PartialFillNotAllowed();
+            require(data.desc.dstReceiver == address(0), "InvalidDstReceiver");
+            require(data.desc.flags & _PARTIAL_FILL == 0, "PartialFillNotAllowed");
 
             address srcToken = address(data.desc.srcToken);
             address dstToken = address(data.desc.dstToken);
@@ -81,8 +80,8 @@ abstract contract DCASwapHandler is ReentrancyGuard, DCAConfigHandler, IDCASwapH
             (uint256 totalAmountToSwap, bytes1 intervalsInSwap) = _getTotalAmountsToSwap(srcToken, dstToken);
             (uint256 amountToSwap, uint256 feeAmount) = _calculateFeeAmount(totalAmountToSwap, swapFee);
 
-            if (amountToSwap == 0 || intervalsInSwap == 0) revert NoAvailableSwap();
-            if (data.desc.amount != amountToSwap) revert InvalidSwapAmount();
+            require(amountToSwap > 0 && intervalsInSwap > 0, "NoAvailableSwap");
+            require(data.desc.amount == amountToSwap, "InvalidSwapAmount");
 
             uint256 neededInSwap = oracle.quote(srcToken, amountToSwap, dstToken);
 
@@ -96,7 +95,7 @@ abstract contract DCASwapHandler is ReentrancyGuard, DCAConfigHandler, IDCASwapH
                 data.routeData
             );
 
-            if (returnAmount < neededInSwap && returnAmount < data.desc.minReturnAmount) revert InvalidReturnAmount();
+            require(returnAmount >= neededInSwap && returnAmount >= data.desc.minReturnAmount, "InvalidReturnAmount");
 
             // register swap
             _registerSwap(srcToken, dstToken, totalAmountToSwap, returnAmount, intervalsInSwap);

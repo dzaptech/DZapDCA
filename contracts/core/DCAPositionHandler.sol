@@ -10,7 +10,6 @@ import "../libraries/SafeERC20.sol";
 import "./../interfaces/IDCAPositionHandler.sol";
 
 import { UserPosition, PositionInfo, PositionSet, InputPositionDetails } from "./../common/Types.sol";
-import { InsufficientAmount, ZeroAddress, InvalidToken, NotNativeToken, NotWNativeToken, ZeroAmount, ZeroSwaps, UnallowedToken, InvalidRate, IntervalNotAllowed, InvalidPosition, PositionDoesNotMatchToken, ZeroSwappedAmount } from "./../common/Error.sol";
 
 abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHandler, IDCAPositionHandler {
     using SafeERC20 for IERC20;
@@ -59,7 +58,7 @@ abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHa
         address fromToken = from_;
 
         if (from_ == NATIVE_TOKEN) {
-            if (msg.value != amount_) revert InsufficientAmount();
+            require(msg.value == amount_, "InsufficientAmount");
             _wrap(amount_);
             fromToken = address(wNative);
         }
@@ -104,10 +103,10 @@ abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHa
         _assertTokensAreAllowed(userPosition.from, userPosition.to);
 
         if (nativeFlag_) {
-            if (userPosition.from != address(wNative)) revert NotNativeToken();
+            require(userPosition.from == address(wNative), "NotWNativeToken");
 
             if (flag_) {
-                if (msg.value != amount_) revert InsufficientAmount();
+                require(msg.value == amount_, "InsufficientAmount");
                 _wrap(amount_);
             }
         }
@@ -122,11 +121,10 @@ abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHa
 
         if (flag_ && !nativeFlag_) {
             _permit(userPosition.from, permit_);
-
             IERC20(userPosition.from).safeTransferFrom(_msgSender(), address(this), amount_);
         } else if (!flag_) {
             if (nativeFlag_) {
-                _unwrapAndSend(amount_, payable(_msgSender()));
+                _unwrapAndSend(amount_, _msgSender());
             } else {
                 IERC20(userPosition.from).safeTransfer(_msgSender(), amount_);
             }
@@ -137,16 +135,16 @@ abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHa
 
     function terminate(
         uint256 positionId_,
-        address payable recipientSwapped_,
-        address payable recipientUnswapped_,
+        address recipientSwapped_,
+        address recipientUnswapped_,
         bool nativeFlag_
     ) external nonReentrant {
-        if (recipientUnswapped_ == address(0) || recipientSwapped_ == address(0)) revert ZeroAddress();
+        require(recipientUnswapped_ != address(0) && recipientSwapped_ != address(0), "ZeroAddress");
 
         UserPosition memory userPosition = userPositions[positionId_];
 
-        if (nativeFlag_ && userPosition.from != address(wNative) && userPosition.to != address(wNative))
-            revert NotWNativeToken();
+        if (nativeFlag_)
+            require(userPosition.from == address(wNative) || userPosition.to == address(wNative), "NotWNativeToken");
 
         (uint256 unswapped, uint256 swapped) = _terminate(userPosition, positionId_);
 
@@ -165,17 +163,18 @@ abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHa
 
     function withdrawSwapped(
         uint256 positionId_,
-        address payable recipient_,
+        address recipient_,
         bool nativeFlag_
     ) external {
-        _assertNonZeroAddress(recipient_);
+        require(recipient_ != address(0), "ZeroAddress");
+
         UserPosition memory userPosition = userPositions[positionId_];
 
-        if (nativeFlag_ && userPosition.to != address(wNative)) revert NotWNativeToken();
+        if (nativeFlag_) require(userPosition.to == address(wNative), "NotWNativeToken");
 
         uint256 swapped = _executeWithdraw(userPosition, positionId_);
 
-        if (swapped == 0) revert ZeroSwappedAmount();
+        require(swapped > 0, "ZeroSwappedAmount");
 
         if (nativeFlag_) {
             _unwrapAndSend(swapped, recipient_);
@@ -195,18 +194,18 @@ abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHa
         uint256 noOfSwaps_,
         uint32 swapInterval_
     ) private returns (UserPosition memory, uint256) {
-        if (from_ == address(0) || to_ == address(0)) revert ZeroAddress();
-        if (from_ == to_) revert InvalidToken();
-        if (amount_ == 0) revert ZeroAmount();
-        if (noOfSwaps_ == 0) revert ZeroSwaps();
+        require(from_ != address(0) && to_ != address(0), "ZeroAddress");
+        require(from_ != to_, "InvalidToken");
+        require(amount_ > 0, "ZeroAmount");
+        require(noOfSwaps_ > 0, "ZeroSwaps");
 
         _assertTokensAreAllowed(from_, to_);
 
         bytes1 swapIntervalMask = Intervals.intervalToMask(swapInterval_);
-        if (allowedSwapIntervals & swapIntervalMask == 0) revert IntervalNotAllowed();
+        require(allowedSwapIntervals & swapIntervalMask != 0, "IntervalNotAllowed");
 
         uint256 rate = _calculateRate(amount_, noOfSwaps_);
-        if (rate <= 0) revert InvalidRate();
+        require(rate > 0, "InvalidRate");
 
         uint256 positionId = ++totalCreatedPositions;
         uint256 performedSwaps = swapData[from_][to_][swapIntervalMask].performedSwaps;
@@ -246,8 +245,8 @@ abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHa
             uint256
         )
     {
-        if (amount_ == 0) revert ZeroAmount();
-        if (newAmountOfSwaps_ == 0) revert ZeroSwaps();
+        require(amount_ > 0, "ZeroAmount");
+        require(newAmountOfSwaps_ > 0, "ZeroSwaps");
 
         _assertPositionExistsAndCallerHasPermission(userPosition_);
 
@@ -368,11 +367,17 @@ abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHa
         return (_amount * swapFee) / BPS_DENOMINATOR;
     }
 
-    function _unwrapAndSend(uint256 amount_, address payable recipient_) internal {
+    function _unwrapAndSend(uint256 amount_, address recipient_) internal {
         if (amount_ > 0) {
             wNative.withdraw(amount_);
-            recipient_.transfer(amount_);
+
+            _safeNativeTransfer(recipient_, amount_);
         }
+    }
+
+    function _safeNativeTransfer(address to_, uint256 amount_) internal {
+        (bool sent, ) = to_.call{ value: amount_ }(new bytes(0));
+        require(sent, "NativeTransferFailed");
     }
 
     function _wrapAndTransfer(uint256 amount_, address recipient_) internal {
@@ -390,17 +395,13 @@ abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHa
 
     // ========== ASSERT =================
 
-    function _assertNonZeroAddress(address recipient_) internal pure {
-        if (recipient_ == address(0)) revert ZeroAddress();
-    }
-
     function _assertTokensAreAllowed(address tokenA_, address tokenB_) internal view {
-        if (!allowedTokens[tokenA_] || !allowedTokens[tokenB_]) revert UnallowedToken();
+        require(allowedTokens[tokenA_] && allowedTokens[tokenB_], "UnallowedToken");
     }
 
     function _assertPositionExistsAndCallerHasPermission(UserPosition memory userPosition_) internal view {
-        if (userPosition_.swapIntervalMask == 0) revert InvalidPosition();
-        if (_msgSender() != userPosition_.owner) revert UnauthorizedCaller();
+        require(userPosition_.swapIntervalMask != 0, "InvalidPosition");
+        require(_msgSender() == userPosition_.owner, "UnauthorizedCaller");
     }
 
     // ========== LIBRARY TYPE FUNCTIONS =================

@@ -10,7 +10,6 @@ import "../interfaces/IERC20.sol";
 import "../interfaces/IDCAConfigHandler.sol";
 import "../interfaces/IChainlinkOracle.sol";
 import { IWNative } from "./../interfaces/IWNative.sol";
-import { InvalidInterval, HighFee, HighPlatformFeeRatio } from "./../common/Error.sol";
 
 abstract contract DCAConfigHandler is DCAParameters, Governable, Pausable, IDCAConfigHandler {
     /// if a interval is currently allowed or not, can also give default
@@ -91,14 +90,14 @@ abstract contract DCAConfigHandler is DCAParameters, Governable, Pausable, IDCAC
     }
 
     function setSwapFee(uint256 swapFee_) external onlyGovernance {
-        if (swapFee_ > MAX_FEE) revert HighFee();
+        require(swapFee_ <= MAX_FEE, "HighFee");
         swapFee = swapFee_;
 
         emit SwapFeeUpdated(swapFee_);
     }
 
     function setPlatformFeeRatio(uint256 platformFeeRatio_) external onlyGovernance {
-        if (platformFeeRatio_ > MAX_PLATFORM_FEE_RATIO) revert HighPlatformFeeRatio();
+        require(platformFeeRatio_ <= MAX_PLATFORM_FEE_RATIO, "HighPlatformFeeRatio");
         platformFeeRatio = platformFeeRatio_;
 
         emit PlatformFeeRatioUpdated(platformFeeRatio_);
