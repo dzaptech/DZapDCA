@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import { UserPosition, PositionInfo, PositionSet } from "./../common/Types.sol";
+import { PositionInfo } from "./../common/Types.sol";
 
 interface IDCAPositionHandler {
     /// @notice Emitted when a position is created
@@ -13,7 +13,7 @@ interface IDCAPositionHandler {
     /// @param rate How many "from" tokens need to be traded in each swap
     /// @param startingSwap The number of the swap when the position will be executed for the first time
     /// @param finalSwap The number of the swap when the position will be executed for the last time
-    event Deposited(
+    event Created(
         address indexed owner,
         uint256 positionId,
         address fromToken,
@@ -36,15 +36,6 @@ interface IDCAPositionHandler {
         uint256 positionId,
         address token,
         uint256 amount
-    );
-
-    event WithdrewAndSwapped(
-        address indexed withdrawer,
-        address indexed recipient,
-        address srcToken,
-        address destToken,
-        uint256 leftOver,
-        uint256 returnAmount
     );
 
     /// @notice Emitted when a position is modified
@@ -71,10 +62,6 @@ interface IDCAPositionHandler {
         uint256 returnedUnswapped
     );
 
-    // function userPositions(uint256 positionId_)
-    //     external
-    //     returns (UserPosition memory);
-
     function totalCreatedPositions() external view returns (uint256);
 
     function getPositionDetails(uint256 positionId_) external view returns (PositionInfo memory positionInfo);
@@ -86,27 +73,27 @@ interface IDCAPositionHandler {
         uint256 amount_,
         uint256 noOfSwaps_,
         uint32 swapInterval_
-    ) external returns (uint256);
+    ) external payable returns (uint256);
 
-    function increasePosition(
+    function modifyPosition(
         uint256 positionId_,
         uint256 amount_,
         uint256 newAmountOfSwaps_,
-        bytes memory permit_
-    ) external;
-
-    function reducePosition(
-        uint256 positionId_,
-        uint256 amount_,
-        uint256 newAmountOfSwaps_,
-        address recipient_
-    ) external;
+        bytes memory permit_,
+        bool flag_,
+        bool nativeFlag_
+    ) external payable;
 
     function terminate(
         uint256 positionId_,
-        address recipientSwapped_,
-        address recipientUnswapped_
+        address payable recipientSwapped_,
+        address payable recipientUnswapped_,
+        bool nativeFlag_
     ) external;
 
-    function withdrawSwapped(uint256 positionId_, address recipient_) external;
+    function withdrawSwapped(
+        uint256 positionId_,
+        address payable recipient_,
+        bool nativeFlag_
+    ) external;
 }

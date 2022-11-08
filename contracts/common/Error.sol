@@ -71,3 +71,5 @@ error ZeroMaxDelay();
 error PairNotSupported();
 
 error InvalidMappingsInput();
+
+error InsufficientAmount();

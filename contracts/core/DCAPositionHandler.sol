@@ -10,7 +10,7 @@ import "../libraries/SafeERC20.sol";
 import "./../interfaces/IDCAPositionHandler.sol";
 
 import { UserPosition, PositionInfo, PositionSet, InputPositionDetails } from "./../common/Types.sol";
-import { ZeroAddress, InvalidToken, NotNativeToken, NotWNativeToken, ZeroAmount, ZeroSwaps, UnallowedToken, InvalidRate, IntervalNotAllowed, InvalidPosition, PositionDoesNotMatchToken, ZeroSwappedAmount } from "./../common/Error.sol";
+import { InsufficientAmount, ZeroAddress, InvalidToken, NotNativeToken, NotWNativeToken, ZeroAmount, ZeroSwaps, UnallowedToken, InvalidRate, IntervalNotAllowed, InvalidPosition, PositionDoesNotMatchToken, ZeroSwappedAmount } from "./../common/Error.sol";
 
 abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHandler, IDCAPositionHandler {
     using SafeERC20 for IERC20;
@@ -55,54 +55,29 @@ abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHa
         uint256 amount_,
         uint256 noOfSwaps_,
         uint32 swapInterval_
-    ) public nonReentrant whenNotPaused returns (uint256) {
-        (UserPosition memory userPosition, uint256 positionId) = _create(
-            from_,
-            to_,
-            amount_,
-            noOfSwaps_,
-            swapInterval_
-        );
-
-        _permit(from_, permit_);
-
-        IERC20(from_).safeTransferFrom(_msgSender(), address(this), amount_);
-
-        emit Deposited(
-            _msgSender(),
-            positionId,
-            from_,
-            to_,
-            swapInterval_,
-            userPosition.rate,
-            userPosition.swapWhereLastUpdated + 1,
-            userPosition.finalSwap
-        );
-
-        return positionId;
-    }
-
-    function createPositionUsingNativeToken(
-        address from_,
-        address to_,
-        uint256 amount_,
-        uint256 noOfSwaps_,
-        uint32 swapInterval_
     ) public payable nonReentrant whenNotPaused returns (uint256) {
-        if (from_ != NATIVE_TOKEN) revert NotNativeToken();
+        address fromToken = from_;
 
-        _wrap(amount_);
-        from_ = address(wNative);
+        if (from_ == NATIVE_TOKEN) {
+            if (msg.value != amount_) revert InsufficientAmount();
+            _wrap(amount_);
+            fromToken = address(wNative);
+        }
 
         (UserPosition memory userPosition, uint256 positionId) = _create(
-            from_,
+            fromToken,
             to_,
             amount_,
             noOfSwaps_,
             swapInterval_
         );
 
-        emit Deposited(
+        if (from_ != NATIVE_TOKEN) {
+            _permit(from_, permit_);
+            IERC20(from_).safeTransferFrom(_msgSender(), address(this), amount_);
+        }
+
+        emit Created(
             _msgSender(),
             positionId,
             from_,
@@ -116,174 +91,99 @@ abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHa
         return positionId;
     }
 
-    function increasePosition(
+    // flag_: true for increase
+    function modifyPosition(
         uint256 positionId_,
         uint256 amount_,
         uint256 newAmountOfSwaps_,
-        bytes memory permit_
-    ) external whenNotPaused {
-        UserPosition memory userPosition = userPositions[positionId_];
-
-        _assertTokensAreAllowed(userPosition.from, userPosition.to);
-
-        (uint256 rate, uint256 startingSwap, uint256 finalSwap) = _modify(
-            userPosition,
-            positionId_,
-            amount_,
-            newAmountOfSwaps_,
-            true
-        );
-
-        _permit(userPosition.from, permit_);
-
-        IERC20(userPosition.from).safeTransferFrom(_msgSender(), address(this), amount_);
-
-        emit Modified(_msgSender(), positionId_, rate, startingSwap, finalSwap);
-    }
-
-    function increasePositionUsingNative(
-        uint256 positionId_,
-        uint256 amount_,
-        uint256 newAmountOfSwaps_
+        bytes memory permit_,
+        bool flag_,
+        bool nativeFlag_
     ) external payable whenNotPaused {
         UserPosition memory userPosition = userPositions[positionId_];
         _assertTokensAreAllowed(userPosition.from, userPosition.to);
 
-        if (userPosition.from != address(wNative)) revert();
+        if (nativeFlag_) {
+            if (userPosition.from != address(wNative)) revert NotNativeToken();
 
-        _wrap(amount_);
-
-        (uint256 rate, uint256 startingSwap, uint256 finalSwap) = _modify(
-            userPosition,
-            positionId_,
-            amount_,
-            newAmountOfSwaps_,
-            true
-        );
-
-        emit Modified(_msgSender(), positionId_, rate, startingSwap, finalSwap);
-    }
-
-    function reducePosition(
-        uint256 positionId_,
-        uint256 amount_,
-        uint256 newAmountOfSwaps_,
-        address recipient_
-    ) external whenNotPaused {
-        _assertNonZeroAddress(recipient_);
-
-        UserPosition memory userPosition = userPositions[positionId_];
+            if (flag_) {
+                if (msg.value != amount_) revert InsufficientAmount();
+                _wrap(amount_);
+            }
+        }
 
         (uint256 rate, uint256 startingSwap, uint256 finalSwap) = _modify(
             userPosition,
             positionId_,
             amount_,
             newAmountOfSwaps_,
-            false
+            flag_
         );
 
-        IERC20(userPosition.from).safeTransfer(recipient_, amount_);
+        if (flag_ && !nativeFlag_) {
+            _permit(userPosition.from, permit_);
 
-        emit Modified(_msgSender(), positionId_, rate, startingSwap, finalSwap);
-    }
-
-    function reducePositionUsingNativeToken(
-        uint256 positionId_,
-        uint256 amount_,
-        uint256 newAmountOfSwaps_,
-        address payable recipient_
-    ) external whenNotPaused {
-        _assertNonZeroAddress(recipient_);
-
-        UserPosition memory userPosition = userPositions[positionId_];
-
-        if (userPosition.from != address(wNative)) revert();
-
-        (uint256 rate, uint256 startingSwap, uint256 finalSwap) = _modify(
-            userPosition,
-            positionId_,
-            amount_,
-            newAmountOfSwaps_,
-            false
-        );
-
-        _unwrapAndSend(amount_, recipient_);
+            IERC20(userPosition.from).safeTransferFrom(_msgSender(), address(this), amount_);
+        } else if (!flag_) {
+            if (nativeFlag_) {
+                _unwrapAndSend(amount_, payable(_msgSender()));
+            } else {
+                IERC20(userPosition.from).safeTransfer(_msgSender(), amount_);
+            }
+        }
 
         emit Modified(_msgSender(), positionId_, rate, startingSwap, finalSwap);
     }
 
     function terminate(
         uint256 positionId_,
-        address recipientSwapped_,
-        address recipientUnswapped_
-    ) external nonReentrant {
-        if (recipientUnswapped_ == address(0) || recipientSwapped_ == address(0)) revert ZeroAddress();
-
-        UserPosition memory userPosition = userPositions[positionId_];
-
-        (uint256 unswapped, uint256 swapped) = _terminate(userPosition, positionId_);
-
-        if (unswapped > 0) IERC20(userPosition.from).safeTransfer(recipientUnswapped_, unswapped);
-
-        if (swapped > 0) {
-            IERC20(userPosition.to).safeTransfer(recipientSwapped_, swapped);
-        }
-
-        emit Terminated(_msgSender(), recipientSwapped_, recipientUnswapped_, positionId_, swapped, unswapped);
-    }
-
-    function terminateUsingNative(
-        uint256 positionId_,
         address payable recipientSwapped_,
         address payable recipientUnswapped_,
-        bool isFromTokenNative
+        bool nativeFlag_
     ) external nonReentrant {
         if (recipientUnswapped_ == address(0) || recipientSwapped_ == address(0)) revert ZeroAddress();
 
         UserPosition memory userPosition = userPositions[positionId_];
-        if (isFromTokenNative ? userPosition.from != address(wNative) : userPosition.to != address(wNative))
+
+        if (nativeFlag_ && userPosition.from != address(wNative) && userPosition.to != address(wNative))
             revert NotWNativeToken();
 
         (uint256 unswapped, uint256 swapped) = _terminate(userPosition, positionId_);
 
         if (unswapped > 0) {
-            if (isFromTokenNative) _unwrapAndSend(unswapped, recipientUnswapped_);
+            if (nativeFlag_ && userPosition.from == address(wNative)) _unwrapAndSend(unswapped, recipientUnswapped_);
             else IERC20(userPosition.from).safeTransfer(recipientUnswapped_, unswapped);
         }
 
         if (swapped > 0) {
-            if (!isFromTokenNative) _unwrapAndSend(swapped, recipientSwapped_);
+            if (nativeFlag_ && userPosition.to == address(wNative)) _unwrapAndSend(swapped, recipientSwapped_);
             else IERC20(userPosition.to).safeTransfer(recipientSwapped_, swapped);
         }
 
         emit Terminated(_msgSender(), recipientSwapped_, recipientUnswapped_, positionId_, swapped, unswapped);
     }
 
-    function withdrawSwapped(uint256 positionId_, address recipient_) external {
+    function withdrawSwapped(
+        uint256 positionId_,
+        address payable recipient_,
+        bool nativeFlag_
+    ) external {
         _assertNonZeroAddress(recipient_);
         UserPosition memory userPosition = userPositions[positionId_];
+
+        if (nativeFlag_ && userPosition.to != address(wNative)) revert NotWNativeToken();
 
         uint256 swapped = _executeWithdraw(userPosition, positionId_);
 
         if (swapped == 0) revert ZeroSwappedAmount();
 
-        IERC20(userPosition.to).safeTransfer(recipient_, swapped);
+        if (nativeFlag_) {
+            _unwrapAndSend(swapped, recipient_);
+        } else {
+            IERC20(userPosition.to).safeTransfer(recipient_, swapped);
+        }
 
         emit Withdrew(_msgSender(), recipient_, positionId_, userPosition.to, swapped);
-    }
-
-    function withdrawSwappedUsingNativeToken(uint256 positionId_, address payable recipient_) external {
-        _assertNonZeroAddress(recipient_);
-        UserPosition memory userPosition = userPositions[positionId_];
-        if (userPosition.to != address(wNative)) revert NotWNativeToken();
-
-        uint256 swapped = _executeWithdraw(userPosition, positionId_);
-
-        if (swapped == 0) revert ZeroSwappedAmount();
-
-        _unwrapAndSend(swapped, recipient_);
-
-        emit Withdrew(_msgSender(), recipient_, positionId_, NATIVE_TOKEN, swapped);
     }
 
     /* ========= INTERNAL ========= */
