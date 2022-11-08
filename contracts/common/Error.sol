@@ -69,3 +69,5 @@ error LastUpdateIsTooOld();
 error ZeroMaxDelay();
 
 error PairNotSupported();
+
+error InvalidMappingsInput();

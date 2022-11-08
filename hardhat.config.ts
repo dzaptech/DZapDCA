@@ -20,7 +20,7 @@ import { getNodeUrl } from './utils/network'
 
 dotenv.config()
 
-const mainnetKey: string = process.env.MAINNET_KEY_BETA1 || dummyKey
+const mainnetKey: string = process.env.MAINNET_KEY || dummyKey
 const testnetKey: string = process.env.TESTNET_KEY || dummyKey
 const infuraApiKey: string = process.env.INFURA_API_KEY || dummyApiKey
 const alchemyApiKey: string = process.env.ALCHEMY_API_KEY || dummyApiKey

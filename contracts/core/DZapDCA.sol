@@ -10,8 +10,9 @@ contract DZapDCA is DCAParameters, DCAConfigHandler, DCASwapHandler, DCAPosition
     constructor(
         address governor_,
         address wNative_,
-        address oneInchRouter_
-    ) DCAConfigHandler(governor_, wNative_) DCASwapHandler(oneInchRouter_) {}
+        address oneInchRouter_,
+        address oracle_
+    ) DCAConfigHandler(governor_, wNative_, oracle_) DCASwapHandler(oneInchRouter_) {}
 
     // for unWrapping Native tokens
     receive() external payable {}

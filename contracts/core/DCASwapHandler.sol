@@ -42,11 +42,13 @@ abstract contract DCASwapHandler is ReentrancyGuard, DCAConfigHandler, IDCASwapH
 
             (uint256 swapReward, uint256 platformFee) = _calculateFeeAmount(feeAmount, platformFeeRatio);
 
+            uint256 returnAmount = oracle.quote(pair.from, amountToSwap, pair.to);
+
             swapInformation[i] = SwapInfo(
                 pair.from,
                 pair.to,
                 amountToSwap,
-                0, // return amount get from 1inch
+                returnAmount,
                 swapReward,
                 platformFee,
                 intervalsInSwap
@@ -77,14 +79,15 @@ abstract contract DCASwapHandler is ReentrancyGuard, DCAConfigHandler, IDCASwapH
             address dstToken = address(data.desc.dstToken);
 
             (uint256 totalAmountToSwap, bytes1 intervalsInSwap) = _getTotalAmountsToSwap(srcToken, dstToken);
-
             (uint256 amountToSwap, uint256 feeAmount) = _calculateFeeAmount(totalAmountToSwap, swapFee);
 
             if (amountToSwap == 0 || intervalsInSwap == 0) revert NoAvailableSwap();
             if (data.desc.amount != amountToSwap) revert InvalidSwapAmount();
 
+            uint256 neededInSwap = oracle.quote(srcToken, amountToSwap, dstToken);
+
             // approve
-            IERC20(srcToken).approve(ONE_INCH_ROUTER, data.desc.amount + 1);
+            data.desc.srcToken.safeApprove(ONE_INCH_ROUTER, data.desc.amount + 1);
 
             // execute swap
             (uint256 returnAmount, ) = IAggregationRouterV4(ONE_INCH_ROUTER).swap(
@@ -93,7 +96,7 @@ abstract contract DCASwapHandler is ReentrancyGuard, DCAConfigHandler, IDCASwapH
                 data.routeData
             );
 
-            if (returnAmount < data.desc.minReturnAmount) revert InvalidReturnAmount();
+            if (returnAmount < neededInSwap && returnAmount < data.desc.minReturnAmount) revert InvalidReturnAmount();
 
             // register swap
             _registerSwap(srcToken, dstToken, totalAmountToSwap, returnAmount, intervalsInSwap);
@@ -112,8 +115,8 @@ abstract contract DCASwapHandler is ReentrancyGuard, DCAConfigHandler, IDCASwapH
             );
 
             // transfer reward and fee
-            data.desc.srcToken.transfer(feeVault, platformFee);
-            data.desc.srcToken.transfer(rewardRecipient_, swapReward);
+            data.desc.srcToken.safeTransfer(feeVault, platformFee);
+            data.desc.srcToken.safeTransfer(rewardRecipient_, swapReward);
         }
 
         emit Swapped(_msgSender(), rewardRecipient_, swapInformation, swapFee);

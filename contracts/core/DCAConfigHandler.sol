@@ -8,6 +8,7 @@ import "./../utils/Governable.sol";
 import "./../libraries/Intervals.sol";
 import "../interfaces/IERC20.sol";
 import "../interfaces/IDCAConfigHandler.sol";
+import "../interfaces/IChainlinkOracle.sol";
 import { IWNative } from "./../interfaces/IWNative.sol";
 import { InvalidInterval, HighFee, HighPlatformFeeRatio } from "./../common/Error.sol";
 
@@ -33,14 +34,21 @@ abstract contract DCAConfigHandler is DCAParameters, Governable, Pausable, IDCAC
     /// how much will the platform take from the fees collected in swaps (in BPS)
     uint256 public platformFeeRatio;
 
+    IChainlinkOracle public oracle;
+
     uint256 public constant MAX_FEE = 10000; // 10%
     uint256 public constant MAX_PLATFORM_FEE_RATIO = 100000; // 100%
     uint256 public constant BPS_DENOMINATOR = 100000; // 3 point precision
 
     /* ========= CONSTRUCTOR ========= */
 
-    constructor(address governor_, address wNative_) Governable(governor_) {
+    constructor(
+        address governor_,
+        address wNative_,
+        address oracle_
+    ) Governable(governor_) {
         wNative = IWNative(wNative_);
+        oracle = IChainlinkOracle(oracle_);
     }
 
     /* ========= RESTRICTED FUNCTIONS ========= */
