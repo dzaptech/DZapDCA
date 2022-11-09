@@ -4,8 +4,10 @@ export const ZERO = BigNumber.from(0)
 export const BPS_MULTIPLIER = 100
 export const CONTRACTS = {
   DZapDCA: 'DZapDCA',
+  ChainlinkOracle: 'ChainlinkOracle',
   DCAMock: 'DCAMock',
   MockExchange: 'MockExchange',
+  MockOracle: 'MockOracle',
   AggregationRouterV4: 'AggregationRouterV4',
   UniswapV2Factory: 'UniswapV2Factory',
   UniswapV2Router02: 'UniswapV2Router02',
@@ -25,13 +27,23 @@ export const EVENTS = {
   FeeVaultUpdated: 'FeeVaultUpdated',
   SwapFeeUpdated: 'SwapFeeUpdated',
   PlatformFeeRatioUpdated: 'PlatformFeeRatioUpdated',
-  Deposited: 'Deposited',
+  OracleUpdated: 'OracleUpdated',
+  SlippageUpdated: 'SlippageUpdated',
+  Created: 'Created',
   Withdrew: 'Withdrew',
-  WithdrewManyFromMultiplePositions: 'WithdrewManyFromMultiplePositions',
-  WithdrewAndSwapped: 'WithdrewAndSwapped',
   Modified: 'Modified',
   Terminated: 'Terminated',
-  Swapped: 'Swapped',
+}
+
+export enum SwapIntervals {
+  OneHour = 60 * 60,
+  FourHour = 4 * 60 * 60,
+  TwelveHour = 12 * 60 * 60,
+  OneDay = 24 * 60 * 60,
+  ThreeDay = 3 * 24 * 60 * 60,
+  OneWeek = 7 * 24 * 60 * 60,
+  TwoWeek = 14 * 24 * 60 * 60,
+  OneMonth = 30 * 24 * 60 * 60,
 }
 
 export const ONE_INCH_BASE_URL = 'https://api.1inch.io/v4.0'

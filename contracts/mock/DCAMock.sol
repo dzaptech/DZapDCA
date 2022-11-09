@@ -1,23 +1,27 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "./DCAParameters.sol";
-import "./DCAConfigHandler.sol";
-import "./DCAPositionHandler.sol";
-import "./DCASwapHandler.sol";
+import "./DCAParametersMock.sol";
+import "./DCAConfigHandlerMock.sol";
+import "./DCAPositionHandlerMock.sol";
+import "./DCASwapHandlerMock.sol";
 import "../interfaces/IDCA.sol";
 
-contract DZapDCA is DCAParameters, DCAConfigHandler, DCASwapHandler, DCAPositionHandler, IDCA {
+contract DCAMock is DCAParametersMock, DCAConfigHandlerMock, DCASwapHandlerMock, DCAPositionHandlerMock, IDCA {
     using SafeERC20 for IERC20;
 
     constructor(
         address governor_,
         address wNative_,
         address oneInchRouter_,
-        address oracle_,
+        address mockOracle_,
+        address mockExchange_,
         address feeVault_,
         uint256 slippage_
-    ) DCAConfigHandler(governor_, wNative_, oracle_, feeVault_, slippage_) DCASwapHandler(oneInchRouter_) {}
+    )
+        DCAConfigHandlerMock(governor_, wNative_, mockOracle_, mockExchange_, feeVault_, slippage_)
+        DCASwapHandlerMock(oneInchRouter_)
+    {}
 
     /**
      * @dev Rescues tokens that are sent by mistake

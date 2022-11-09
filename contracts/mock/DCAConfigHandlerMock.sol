@@ -3,15 +3,16 @@ pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/security/Pausable.sol";
 
-import "./DCAParameters.sol";
+import "./DCAParametersMock.sol";
+import "./MockOracle.sol";
+import "./MockExchange.sol";
 import "./../utils/Governable.sol";
 import "./../libraries/Intervals.sol";
 import "../interfaces/IERC20.sol";
 import "../interfaces/IDCAConfigHandler.sol";
-import "../interfaces/IChainlinkOracle.sol";
 import { IWNative } from "./../interfaces/IWNative.sol";
 
-abstract contract DCAConfigHandler is DCAParameters, Governable, Pausable, IDCAConfigHandler {
+abstract contract DCAConfigHandlerMock is DCAParametersMock, Governable, Pausable, IDCAConfigHandler {
     /// if a interval is currently allowed or not, can also give default
     bytes1 public allowedSwapIntervals;
 
@@ -35,7 +36,8 @@ abstract contract DCAConfigHandler is DCAParameters, Governable, Pausable, IDCAC
     /// how much will the platform take from the fees collected in swaps (in BPS)
     uint256 public platformFeeRatio;
 
-    IChainlinkOracle public oracle;
+    MockOracle public oracle;
+    MockExchange public mockExchange;
 
     uint256 public slippage;
 
@@ -49,7 +51,8 @@ abstract contract DCAConfigHandler is DCAParameters, Governable, Pausable, IDCAC
     constructor(
         address governor_,
         address wNative_,
-        address oracle_,
+        address mockOracle_,
+        address mockExchange_,
         address feeVault_,
         uint256 slippage_
     ) Governable(governor_) {
@@ -58,7 +61,8 @@ abstract contract DCAConfigHandler is DCAParameters, Governable, Pausable, IDCAC
 
         feeVault = feeVault_;
         wNative = IWNative(wNative_);
-        oracle = IChainlinkOracle(oracle_);
+        oracle = MockOracle(mockOracle_);
+        mockExchange = MockExchange(mockExchange_);
 
         slippage = slippage_;
     }
@@ -117,6 +121,7 @@ abstract contract DCAConfigHandler is DCAParameters, Governable, Pausable, IDCAC
 
     function setFeeVault(address newVault_) external onlyGovernance {
         require(newVault_ != address(0), "ZeroAddress");
+
         feeVault = newVault_;
 
         emit FeeVaultUpdated(newVault_);
@@ -138,7 +143,8 @@ abstract contract DCAConfigHandler is DCAParameters, Governable, Pausable, IDCAC
 
     function setOracle(address oracle_) external onlyGovernance {
         require(oracle_ != address(0), "ZeroAddress");
-        oracle = IChainlinkOracle(oracle_);
+
+        oracle = MockOracle(oracle_);
 
         emit OracleUpdated(oracle_);
     }

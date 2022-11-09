@@ -4,14 +4,14 @@ pragma solidity 0.8.17;
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
-import "./DCAConfigHandler.sol";
+import "./DCAConfigHandlerMock.sol";
 import "./../utils/Permitable.sol";
 import "../libraries/SafeERC20.sol";
 import "./../interfaces/IDCAPositionHandler.sol";
 
 import { UserPosition, PositionInfo, PositionSet, InputPositionDetails } from "./../common/Types.sol";
 
-abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHandler, IDCAPositionHandler {
+abstract contract DCAPositionHandlerMock is Permitable, ReentrancyGuard, DCAConfigHandlerMock, IDCAPositionHandler {
     using SafeERC20 for IERC20;
 
     mapping(uint256 => UserPosition) public userPositions;
@@ -100,7 +100,7 @@ abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHa
         bool nativeFlag_
     ) external payable whenNotPaused {
         UserPosition memory userPosition = userPositions[positionId_];
-        _assertTokensAreAllowed(userPosition.from, userPosition.to);
+        if (flag_) _assertTokensAreAllowed(userPosition.from, userPosition.to);
 
         if (nativeFlag_) {
             require(userPosition.from == address(wNative), "NotWNativeToken");

@@ -28,14 +28,13 @@ interface IDCAPositionHandler {
     /// @param withdrawer The address of the user that executed the withdraw
     /// @param recipient The address of the user that will receive the withdrawn tokens
     /// @param positionId The id of the position that was affected
-    /// @param token The address of the withdrawn tokens. It's the same as the position's "to" token
     /// @param amount The amount that was withdrawn
     event Withdrew(
         address indexed withdrawer,
         address indexed recipient,
         uint256 positionId,
-        address token,
-        uint256 amount
+        uint256 amount,
+        bool nativeFlag
     );
 
     /// @notice Emitted when a position is modified
@@ -44,7 +43,15 @@ interface IDCAPositionHandler {
     /// @param rate How many "from" tokens need to be traded in each swap
     /// @param startingSwap The number of the swap when the position will be executed for the first time
     /// @param finalSwap The number of the swap when the position will be executed for the last time
-    event Modified(address indexed user, uint256 positionId, uint256 rate, uint256 startingSwap, uint256 finalSwap);
+    event Modified(
+        address indexed user,
+        uint256 positionId,
+        uint256 rate,
+        uint256 startingSwap,
+        uint256 finalSwap,
+        bool flag,
+        bool nativeFlag
+    );
 
     /// @notice Emitted when a position is terminated
     /// @param user The address of the user that terminated the position
@@ -59,7 +66,8 @@ interface IDCAPositionHandler {
         address indexed recipientUnswapped,
         uint256 positionId,
         uint256 returnedSwapped,
-        uint256 returnedUnswapped
+        uint256 returnedUnswapped,
+        bool nativeFlag
     );
 
     function totalCreatedPositions() external view returns (uint256);

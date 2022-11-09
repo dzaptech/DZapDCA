@@ -6,11 +6,19 @@ interface IDCAConfigHandler {
 
     event FeeVaultUpdated(address feeVault);
 
+    event AdminAdded(address[] accounts);
+
+    event AdminRemoved(address[] accounts);
+
     event SwapFeeUpdated(uint256 feeSet);
 
     event PlatformFeeRatioUpdated(uint256 platformFeeRatio);
 
     event TokensAllowedUpdated(address[] tokens, bool allowed);
+
+    event OracleUpdated(address oracle);
+
+    event SlippageUpdated(uint256 slippage);
 
     function allowedSwapIntervals() external view returns (bytes1);
 

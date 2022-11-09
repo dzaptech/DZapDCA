@@ -1,23 +1,21 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "@chainlink/contracts/src/v0.8/interfaces/AggregatorV3Interface.sol";
-
 import "./../utils/Governable.sol";
 import "./../interfaces/IERC20.sol";
 import "./../interfaces/IChainlinkOracle.sol";
 
-/**
- * only token/USD
- * ETH/USD, token/ETH or token/USD
- * prices when both tokens share the same base : TOKEN_TO_USD_TO_TOKEN_PAIR, TOKEN_TO_ETH_TO_TOKEN_PAIR
- * prices when one of the tokens uses ETH as the base, and the other USD : TOKEN_A_TO_USD_TO_ETH_TO_TOKEN_B, TOKEN_A_TO_ETH_TO_USD_TO_TOKEN_B
- */
-contract ChainlinkOracle is Governable, IChainlinkOracle {
+contract MockOracle is Governable, IChainlinkOracle {
     mapping(address => AggregatorV3Interface) public feedMapping; // tokens -> feedMapping
     mapping(address => address) internal _tokenMappings;
 
     uint256 public maxDelay;
+
+    // uint256 public price1 = 200; // 1 tokensA -> 2 tokenB, 200 / 100
+    // uint256 public price2 = 50; // 1 tokensA -> .5 tokenB, 50 / 100
+
+    uint256 public price1 = 100;
+    uint256 public price2 = 100;
 
     constructor(address governor_, uint32 maxDelay_) Governable(governor_) {
         require(maxDelay_ > 0, "ZeroMaxDelay");
@@ -32,6 +30,12 @@ contract ChainlinkOracle is Governable, IChainlinkOracle {
     function mappedToken(address token_) public view returns (address) {
         address underlyingToken = _tokenMappings[token_];
         return underlyingToken != address(0) ? underlyingToken : token_;
+    }
+
+    function changePrice(uint256 price1_, uint256 price2_) external {
+        require(price1_ > 0 && price2_ > 0, "InvalidPrice");
+        price1 = price1_;
+        price2 = price2_;
     }
 
     function setMaxDelay(uint32 maxDelay_) external onlyGovernance {
@@ -74,8 +78,11 @@ contract ChainlinkOracle is Governable, IChainlinkOracle {
         int8 inDecimals = _getDecimals(tokenIn_);
         int8 outDecimals = _getDecimals(tokenOut_);
 
-        uint256 tokenInToBase = _callRegistry(feedA);
-        uint256 tokenOutToBase = _callRegistry(feedB);
+        // uint256 tokenInToBase = _callRegistry(feedA);
+        // uint256 tokenOutToBase = _callRegistry(feedB);
+
+        uint256 tokenInToBase = (price1 * 10**8) / 100;
+        uint256 tokenOutToBase = (price2 * 10**8) / 100;
         return _adjustDecimals((amountIn_ * tokenInToBase) / tokenOutToBase, outDecimals - inDecimals);
     }
 

@@ -3,13 +3,13 @@ pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-import "./DCAConfigHandler.sol";
+import "./DCAConfigHandlerMock.sol";
 import "../libraries/SafeERC20.sol";
 import "./../interfaces/IDCASwapHandler.sol";
 import { IAggregationRouterV4 } from "./../interfaces/IAggregationRouterV4.sol";
 import { SwapInfo, Pair, SwapDetails } from "./../common/Types.sol";
 
-abstract contract DCASwapHandler is ReentrancyGuard, DCAConfigHandler, IDCASwapHandler {
+abstract contract DCASwapHandlerMock is ReentrancyGuard, DCAConfigHandlerMock, IDCASwapHandler {
     using SafeERC20 for IERC20;
 
     uint256 internal constant _PARTIAL_FILL = 1 << 0;
@@ -95,14 +95,17 @@ abstract contract DCASwapHandler is ReentrancyGuard, DCAConfigHandler, IDCASwapH
             uint256 neededInSwap = getQuote(srcToken, amountToSwap, dstToken);
 
             // approve
-            data.desc.srcToken.safeIncreaseAllowance(ONE_INCH_ROUTER, data.desc.amount + 1);
+            data.desc.srcToken.safeIncreaseAllowance(address(mockExchange), data.desc.amount + 1);
 
             // execute swap
-            (uint256 returnAmount, ) = IAggregationRouterV4(ONE_INCH_ROUTER).swap(
-                data.executor,
-                data.desc,
-                data.routeData
-            );
+            // (uint256 returnAmount, ) = IAggregationRouterV4(ONE_INCH_ROUTER).swap(
+            //     data.executor,
+            //     data.desc,
+            //     data.routeData
+            // );
+
+            // execute mock swap
+            (uint256 returnAmount, ) = mockExchange.swap(data.desc.srcToken, data.desc.dstToken, data.desc.amount);
 
             require(returnAmount >= neededInSwap && returnAmount >= data.desc.minReturnAmount, "InvalidReturnAmount");
 
