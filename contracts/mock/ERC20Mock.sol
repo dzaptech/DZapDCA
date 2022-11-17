@@ -18,7 +18,7 @@ contract ERC20Mock is ERC20, Ownable, ERC20Permit {
         _mint(msg.sender, supply);
     }
 
-    function mint(address _to, uint256 _amount) public onlyOwner {
+    function mint(address _to, uint256 _amount) public {
         _mint(_to, _amount);
     }
 

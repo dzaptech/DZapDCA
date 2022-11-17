@@ -5,11 +5,11 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/utils/math/Math.sol";
 
 import "./DCAConfigHandlerMock.sol";
-import "./../utils/Permitable.sol";
-import "../libraries/SafeERC20.sol";
-import "./../interfaces/IDCAPositionHandler.sol";
+import "../../utils/Permitable.sol";
+import "../../libraries/SafeERC20.sol";
+import "../../interfaces/IDCAPositionHandler.sol";
 
-import { UserPosition, PositionInfo, PositionSet, InputPositionDetails } from "./../common/Types.sol";
+import { UserPosition, PositionInfo, PositionSet, InputPositionDetails } from "../../common/Types.sol";
 
 abstract contract DCAPositionHandlerMock is Permitable, ReentrancyGuard, DCAConfigHandlerMock, IDCAPositionHandler {
     using SafeERC20 for IERC20;
@@ -55,23 +55,23 @@ abstract contract DCAPositionHandlerMock is Permitable, ReentrancyGuard, DCAConf
         uint256 noOfSwaps_,
         uint32 swapInterval_
     ) public payable nonReentrant whenNotPaused returns (uint256) {
-        address fromToken = from_;
-
+        bool nativeFlag;
         if (from_ == NATIVE_TOKEN) {
             require(msg.value == amount_, "InvalidAmount");
             _wrap(amount_);
-            fromToken = address(wNative);
+            from_ = address(wNative);
+            nativeFlag = true;
         }
 
         (UserPosition memory userPosition, uint256 positionId) = _create(
-            fromToken,
+            from_,
             to_,
             amount_,
             noOfSwaps_,
             swapInterval_
         );
 
-        if (from_ != NATIVE_TOKEN) {
+        if (!nativeFlag) {
             _permit(from_, permit_);
             IERC20(from_).safeTransferFrom(_msgSender(), address(this), amount_);
         }
@@ -84,7 +84,8 @@ abstract contract DCAPositionHandlerMock is Permitable, ReentrancyGuard, DCAConf
             swapInterval_,
             userPosition.rate,
             userPosition.swapWhereLastUpdated + 1,
-            userPosition.finalSwap
+            userPosition.finalSwap,
+            nativeFlag
         );
 
         return positionId;
@@ -105,7 +106,7 @@ abstract contract DCAPositionHandlerMock is Permitable, ReentrancyGuard, DCAConf
         if (nativeFlag_) {
             require(userPosition.from == address(wNative), "NotWNativeToken");
 
-            if (flag_) {
+            if (amount_ > 0 && flag_) {
                 require(msg.value == amount_, "InvalidAmount");
                 _wrap(amount_);
             }
@@ -119,14 +120,16 @@ abstract contract DCAPositionHandlerMock is Permitable, ReentrancyGuard, DCAConf
             flag_
         );
 
-        if (flag_ && !nativeFlag_) {
-            _permit(userPosition.from, permit_);
-            IERC20(userPosition.from).safeTransferFrom(_msgSender(), address(this), amount_);
-        } else if (!flag_) {
-            if (nativeFlag_) {
-                _unwrapAndSend(amount_, _msgSender());
-            } else {
-                IERC20(userPosition.from).safeTransfer(_msgSender(), amount_);
+        if (amount_ > 0) {
+            if (flag_ && !nativeFlag_) {
+                _permit(userPosition.from, permit_);
+                IERC20(userPosition.from).safeTransferFrom(_msgSender(), address(this), amount_);
+            } else if (!flag_) {
+                if (nativeFlag_) {
+                    _unwrapAndSend(amount_, _msgSender());
+                } else {
+                    IERC20(userPosition.from).safeTransfer(_msgSender(), amount_);
+                }
             }
         }
 
@@ -253,8 +256,8 @@ abstract contract DCAPositionHandlerMock is Permitable, ReentrancyGuard, DCAConf
             uint256
         )
     {
-        require(amount_ > 0, "ZeroAmount");
-        require(newAmountOfSwaps_ > 0, "ZeroSwaps");
+        // require(amount_ > 0, "ZeroAmount");
+        // require(newAmountOfSwaps_ > 0, "ZeroSwaps");
 
         _assertPositionExistsAndCallerHasPermission(userPosition_);
 
@@ -264,9 +267,10 @@ abstract contract DCAPositionHandlerMock is Permitable, ReentrancyGuard, DCAConf
 
         uint256 newTotal = increase_ ? unswapped + amount_ : unswapped - amount_;
 
-        uint256 newRate = _calculateRate(newTotal, newAmountOfSwaps_);
+        if (newTotal != 0 && newAmountOfSwaps_ == 0) require(newAmountOfSwaps_ > 0, "ZeroSwaps");
         if (newTotal == 0 && newAmountOfSwaps_ > 0) newAmountOfSwaps_ = 0;
 
+        uint256 newRate = newAmountOfSwaps_ == 0 ? 0 : _calculateRate(newTotal, newAmountOfSwaps_);
         uint256 newFinalSwap = performedSwaps + newAmountOfSwaps_;
 
         userPositions[positionId_].rate = newRate;

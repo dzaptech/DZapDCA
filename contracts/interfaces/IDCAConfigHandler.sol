@@ -2,7 +2,7 @@
 pragma solidity 0.8.17;
 
 interface IDCAConfigHandler {
-    event SwapIntervalsUpdated(uint32[] _swapIntervals, bool indexed allowed);
+    event SwapIntervalsUpdated(uint32[] swapIntervals, bool allowed);
 
     event FeeVaultUpdated(address feeVault);
 

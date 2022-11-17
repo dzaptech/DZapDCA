@@ -55,23 +55,23 @@ abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHa
         uint256 noOfSwaps_,
         uint32 swapInterval_
     ) public payable nonReentrant whenNotPaused returns (uint256) {
-        address fromToken = from_;
-
+        bool nativeFlag;
         if (from_ == NATIVE_TOKEN) {
             require(msg.value == amount_, "InvalidAmount");
             _wrap(amount_);
-            fromToken = address(wNative);
+            from_ = address(wNative);
+            nativeFlag = true;
         }
 
         (UserPosition memory userPosition, uint256 positionId) = _create(
-            fromToken,
+            from_,
             to_,
             amount_,
             noOfSwaps_,
             swapInterval_
         );
 
-        if (from_ != NATIVE_TOKEN) {
+        if (!nativeFlag) {
             _permit(from_, permit_);
             IERC20(from_).safeTransferFrom(_msgSender(), address(this), amount_);
         }
@@ -84,7 +84,8 @@ abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHa
             swapInterval_,
             userPosition.rate,
             userPosition.swapWhereLastUpdated + 1,
-            userPosition.finalSwap
+            userPosition.finalSwap,
+            nativeFlag
         );
 
         return positionId;
@@ -100,12 +101,12 @@ abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHa
         bool nativeFlag_
     ) external payable whenNotPaused {
         UserPosition memory userPosition = userPositions[positionId_];
-        _assertTokensAreAllowed(userPosition.from, userPosition.to);
+        if (flag_) _assertTokensAreAllowed(userPosition.from, userPosition.to);
 
         if (nativeFlag_) {
             require(userPosition.from == address(wNative), "NotWNativeToken");
 
-            if (flag_) {
+            if (amount_ > 0 && flag_) {
                 require(msg.value == amount_, "InvalidAmount");
                 _wrap(amount_);
             }
@@ -119,14 +120,16 @@ abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHa
             flag_
         );
 
-        if (flag_ && !nativeFlag_) {
-            _permit(userPosition.from, permit_);
-            IERC20(userPosition.from).safeTransferFrom(_msgSender(), address(this), amount_);
-        } else if (!flag_) {
-            if (nativeFlag_) {
-                _unwrapAndSend(amount_, _msgSender());
-            } else {
-                IERC20(userPosition.from).safeTransfer(_msgSender(), amount_);
+        if (amount_ > 0) {
+            if (flag_ && !nativeFlag_) {
+                _permit(userPosition.from, permit_);
+                IERC20(userPosition.from).safeTransferFrom(_msgSender(), address(this), amount_);
+            } else if (!flag_) {
+                if (nativeFlag_) {
+                    _unwrapAndSend(amount_, _msgSender());
+                } else {
+                    IERC20(userPosition.from).safeTransfer(_msgSender(), amount_);
+                }
             }
         }
 
@@ -253,9 +256,6 @@ abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHa
             uint256
         )
     {
-        require(amount_ > 0, "ZeroAmount");
-        require(newAmountOfSwaps_ > 0, "ZeroSwaps");
-
         _assertPositionExistsAndCallerHasPermission(userPosition_);
 
         uint256 performedSwaps = swapData[userPosition_.from][userPosition_.to][userPosition_.swapIntervalMask]
@@ -264,9 +264,10 @@ abstract contract DCAPositionHandler is Permitable, ReentrancyGuard, DCAConfigHa
 
         uint256 newTotal = increase_ ? unswapped + amount_ : unswapped - amount_;
 
-        uint256 newRate = _calculateRate(newTotal, newAmountOfSwaps_);
+        if (newTotal != 0 && newAmountOfSwaps_ == 0) require(newAmountOfSwaps_ > 0, "ZeroSwaps");
         if (newTotal == 0 && newAmountOfSwaps_ > 0) newAmountOfSwaps_ = 0;
 
+        uint256 newRate = newAmountOfSwaps_ == 0 ? 0 : _calculateRate(newTotal, newAmountOfSwaps_);
         uint256 newFinalSwap = performedSwaps + newAmountOfSwaps_;
 
         userPositions[positionId_].rate = newRate;

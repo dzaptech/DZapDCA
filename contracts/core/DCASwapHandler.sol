@@ -75,6 +75,7 @@ abstract contract DCASwapHandler is ReentrancyGuard, DCAConfigHandler, IDCASwapH
         whenNotPaused
         returns (SwapInfo[] memory)
     {
+        require(data_.length > 0, "InvalidLength");
         SwapInfo[] memory swapInformation = new SwapInfo[](data_.length);
 
         for (uint256 i; i < data_.length; ++i) {

@@ -435,7 +435,8 @@ describe('DCAMock.test.ts', () => {
               SwapIntervals.OneDay,
               rate,
               startingSwap,
-              finalSwap
+              finalSwap,
+              false
             )
 
           expect(await tokenA.balanceOf(dca.address)).equal(amount)
@@ -500,12 +501,13 @@ describe('DCAMock.test.ts', () => {
             .withArgs(
               signers[1].address,
               positionId,
-              NATIVE_ADDRESS,
+              wNative.address,
               tokenB.address,
               SwapIntervals.OneDay,
               rate,
               startingSwap,
-              finalSwap
+              finalSwap,
+              true
             )
 
           expect(await wNative.balanceOf(dca.address)).equal(amount)
@@ -581,7 +583,8 @@ describe('DCAMock.test.ts', () => {
               SwapIntervals.OneDay,
               rate,
               startingSwap,
-              finalSwap
+              finalSwap,
+              false
             )
 
           expect(await tokenA.balanceOf(dca.address)).equal(amount1)
@@ -639,7 +642,8 @@ describe('DCAMock.test.ts', () => {
               SwapIntervals.OneWeek,
               rate,
               startingSwap,
-              finalSwap
+              finalSwap,
+              false
             )
 
           expect(await tokenA.balanceOf(dca.address)).equal(amount1.add(amount2))
@@ -1140,7 +1144,7 @@ describe('DCAMock.test.ts', () => {
             },
           ]
 
-          await dca.connect(governor).swap(swapDetails, governor.address)
+          await expect(dca.connect(governor).swap(swapDetails, governor.address)).emit(dca, EVENTS.Swapped)
 
           let swapData2 = await dca.swapData(tokenA.address, tokenB.address, SwapIntervalsBytes.OneDay)
 
@@ -1468,12 +1472,13 @@ describe('DCAMock.test.ts', () => {
           ])
 
           // ---------------
-          const newNoOfSwap = 5
+          const newNoOfSwap = 5 // which be changed to 0
+          const unswapped = oldAmount
 
           const oldUserBalance = await tokenA.balanceOf(signers[1].address)
           const oldContractBalance = await tokenA.balanceOf(dca.address)
 
-          await expect(dca.connect(signers[1]).modifyPosition(positionId, oldAmount, newNoOfSwap, '0x', false, false))
+          await expect(dca.connect(signers[1]).modifyPosition(positionId, unswapped, newNoOfSwap, '0x', false, false))
             .emit(dca, EVENTS.Modified)
             .withArgs(signers[1].address, positionId, 0, 1, 0, false, false)
 
@@ -1504,7 +1509,81 @@ describe('DCAMock.test.ts', () => {
           ])
         })
 
-        it('3.2.8 Should allow to reduce even id  token has been disallowed', async () => {
+        it('3.2.8 Should allow users to only change noOfSwaps (amount = 0)', async () => {
+          const oldAmount = parseTokenA(100)
+          const oldNoOfSwap = 10
+
+          await tokenA.connect(signers[1]).approve(dca.address, oldAmount)
+
+          await dca
+            .connect(signers[1])
+            .createPosition(tokenA.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay)
+
+          const positionId = await dca.totalCreatedPositions()
+
+          expect(await tokenA.balanceOf(dca.address)).equal(oldAmount)
+
+          // -------------------
+          const swapData = await dca.swapData(tokenA.address, tokenB.address, SwapIntervalsBytes.OneDay)
+
+          const oldFinalSwap = swapData.performedSwaps.add(oldNoOfSwap)
+          const oldRate = oldAmount.div(oldNoOfSwap)
+
+          expect(swapData.nextAmountToSwap).equal(oldRate)
+
+          expect(
+            await dca.swapAmountDelta(tokenA.address, tokenB.address, SwapIntervalsBytes.OneDay, oldFinalSwap.add(1))
+          ).equal(oldRate)
+
+          expect(await dca.userPositions(positionId)).eql([
+            swapData.performedSwaps,
+            oldFinalSwap,
+            SwapIntervalsBytes.OneDay,
+            oldRate,
+            tokenA.address,
+            tokenB.address,
+            signers[1].address,
+          ])
+
+          // ---------------
+          const newNoOfSwap = 5 // which be changed to 0
+          const newRate = oldAmount.div(newNoOfSwap)
+          const newFinalSwap = swapData.performedSwaps.add(newNoOfSwap)
+
+          const oldUserBalance = await tokenA.balanceOf(signers[1].address)
+          const oldContractBalance = await tokenA.balanceOf(dca.address)
+
+          await expect(dca.connect(signers[1]).modifyPosition(positionId, ZERO, newNoOfSwap, '0x', false, false))
+            .emit(dca, EVENTS.Modified)
+            .withArgs(signers[1].address, positionId, newRate, 1, newFinalSwap, false, false)
+
+          expect(await tokenA.balanceOf(signers[1].address)).equal(oldUserBalance)
+          expect(await tokenA.balanceOf(dca.address)).equal(oldContractBalance)
+
+          const newSwapData = await dca.swapData(tokenA.address, tokenB.address, SwapIntervalsBytes.OneDay)
+
+          expect(newSwapData.nextAmountToSwap).equal(swapData.nextAmountToSwap.add(newRate).sub(oldRate))
+
+          expect(
+            await dca.swapAmountDelta(tokenA.address, tokenB.address, SwapIntervalsBytes.OneDay, newFinalSwap.add(1))
+          ).equal(newRate)
+
+          expect(
+            await dca.swapAmountDelta(tokenA.address, tokenB.address, SwapIntervalsBytes.OneDay, oldFinalSwap.add(1))
+          ).equal(ZERO)
+
+          expect(await dca.userPositions(positionId)).eql([
+            newSwapData.performedSwaps,
+            newFinalSwap,
+            SwapIntervalsBytes.OneDay,
+            newRate,
+            tokenA.address,
+            tokenB.address,
+            signers[1].address,
+          ])
+        })
+
+        it('3.2.9 Should allow to reduce even id  token has been disallowed', async () => {
           const oldAmount = parseTokenA(100)
           const oldNoOfSwap = 10
 
@@ -1550,7 +1629,7 @@ describe('DCAMock.test.ts', () => {
           positionId2 = await dca.totalCreatedPositions()
         })
 
-        it('3.2.9 Should revert if contract is paused', async () => {
+        it('3.2.10 Should revert if contract is paused', async () => {
           await dca.connect(governor).pause()
 
           await expect(
@@ -1558,7 +1637,7 @@ describe('DCAMock.test.ts', () => {
           ).revertedWith('Pausable: paused')
         })
 
-        it('3.2.10 Should revert if token has been disallowed (increase)', async () => {
+        it('3.2.11 Should revert if token has been disallowed (increase)', async () => {
           await dca.connect(governor).removeAllowedTokens([tokenB.address])
 
           await expect(
@@ -1566,13 +1645,13 @@ describe('DCAMock.test.ts', () => {
           ).revertedWith('UnallowedToken')
         })
 
-        it('3.2.11 Should revert if from token is not wNative', async () => {
+        it('3.2.12 Should revert if from token is not wNative', async () => {
           await expect(
             dca.connect(signers[1]).modifyPosition(positionId1, parseTokenA(200), 20, '0x', true, true)
           ).revertedWith('NotWNativeToken')
         })
 
-        it('3.2.12 Should revert if required native tokens arent sent', async () => {
+        it('3.2.13 Should revert if required native tokens arent sent', async () => {
           const newAmount = parseTokenA(10)
           await expect(
             dca
@@ -1587,16 +1666,19 @@ describe('DCAMock.test.ts', () => {
           ).revertedWith('InvalidAmount')
         })
 
-        it('3.2.13 Should revert if amount is zero', async () => {
-          await expect(dca.connect(signers[1]).modifyPosition(positionId1, ZERO, 20, '0x', true, false)).revertedWith(
-            'ZeroAmount'
-          )
-        })
+        // it('3.2.14 Should revert if amount is zero', async () => {
+        //   await expect(dca.connect(signers[1]).modifyPosition(positionId1, ZERO, 20, '0x', true, false)).revertedWith(
+        //     'ZeroAmount'
+        //   )
+        // })
 
-        it('3.2.14 Should revert if swap is zero', async () => {
+        it('3.2.14 Should revert if swap is zero (unSwapped > 0)', async () => {
           await expect(
             dca.connect(signers[1]).modifyPosition(positionId1, parseTokenA(200), 0, '0x', true, false)
           ).revertedWith('ZeroSwaps')
+
+          // reduce amount to zero
+          // await dca.connect(signers[1]).modifyPosition(positionId1, oldAmount, 0, '0x', false, false)
         })
 
         it('3.2.15 Should revert if caller is not position owner', async () => {
@@ -3222,7 +3304,7 @@ describe('DCAMock.test.ts', () => {
           let swapperBalanceBeforeA = await tokenA.balanceOf(rewardRecipient)
           let feeVaultBalanceBeforeA = await tokenA.balanceOf(feeVault.address)
 
-          await dca.connect(governor).swap(swapDetails, rewardRecipient)
+          await expect(dca.connect(governor).swap(swapDetails, rewardRecipient)).emit(dca, EVENTS.Swapped)
 
           const eventFilter = dca.filters.Swapped()
           const eventArgs = (await dca.queryFilter(eventFilter, 'latest'))[0].args
@@ -3549,7 +3631,7 @@ describe('DCAMock.test.ts', () => {
         let returnAmount
 
         beforeEach(async () => {
-          await tokenB.connect(deployer).transfer(mockExchange.address, parseTokenB('500'))
+          await tokenB.connect(deployer).mint(mockExchange.address, parseTokenB('500'))
 
           await tokenA.connect(signers[1]).approve(dca.address, parseTokenA(100))
 

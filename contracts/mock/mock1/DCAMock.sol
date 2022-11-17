@@ -1,11 +1,11 @@
 // SPDX-License-Identifier: MIT
 pragma solidity 0.8.17;
 
-import "./DCAParametersMock.sol";
+import "../DCAParametersMock.sol";
 import "./DCAConfigHandlerMock.sol";
 import "./DCAPositionHandlerMock.sol";
 import "./DCASwapHandlerMock.sol";
-import "../interfaces/IDCA.sol";
+import "../../interfaces/IDCA.sol";
 
 contract DCAMock is DCAParametersMock, DCAConfigHandlerMock, DCASwapHandlerMock, DCAPositionHandlerMock, IDCA {
     using SafeERC20 for IERC20;

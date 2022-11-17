@@ -21,7 +21,8 @@ interface IDCAPositionHandler {
         uint256 swapInterval,
         uint256 rate,
         uint256 startingSwap,
-        uint256 finalSwap
+        uint256 finalSwap,
+        bool nativeFlag
     );
 
     /// @notice Emitted when a user withdraws all swapped tokens from a position

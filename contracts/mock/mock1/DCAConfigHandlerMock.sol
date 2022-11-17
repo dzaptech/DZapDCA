@@ -3,14 +3,14 @@ pragma solidity 0.8.17;
 
 import "@openzeppelin/contracts/security/Pausable.sol";
 
-import "./DCAParametersMock.sol";
-import "./MockOracle.sol";
-import "./MockExchange.sol";
-import "./../utils/Governable.sol";
-import "./../libraries/Intervals.sol";
-import "../interfaces/IERC20.sol";
-import "../interfaces/IDCAConfigHandler.sol";
-import { IWNative } from "./../interfaces/IWNative.sol";
+import "../DCAParametersMock.sol";
+import "../MockOracle.sol";
+import "../MockExchange.sol";
+import "../../utils/Governable.sol";
+import "../../libraries/Intervals.sol";
+import "../../interfaces/IERC20.sol";
+import "../../interfaces/IDCAConfigHandler.sol";
+import { IWNative } from "../../interfaces/IWNative.sol";
 
 abstract contract DCAConfigHandlerMock is DCAParametersMock, Governable, Pausable, IDCAConfigHandler {
     /// if a interval is currently allowed or not, can also give default
