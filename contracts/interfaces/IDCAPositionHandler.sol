@@ -81,7 +81,8 @@ interface IDCAPositionHandler {
         bytes memory permit_,
         uint256 amount_,
         uint256 noOfSwaps_,
-        uint32 swapInterval_
+        uint32 swapInterval_,
+        bool nativeFlag_
     ) external payable returns (uint256);
 
     function modifyPosition(

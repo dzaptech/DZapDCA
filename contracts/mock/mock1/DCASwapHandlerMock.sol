@@ -9,8 +9,6 @@ import "../../interfaces/IDCASwapHandler.sol";
 import { IAggregationRouterV4 } from "../../interfaces/IAggregationRouterV4.sol";
 import { SwapInfo, Pair, SwapDetails } from "../../common/Types.sol";
 
-import "hardhat/console.sol";
-
 abstract contract DCASwapHandlerMock is ReentrancyGuard, DCAConfigHandlerMock, IDCASwapHandler {
     using SafeERC20 for IERC20;
 
@@ -110,8 +108,6 @@ abstract contract DCASwapHandlerMock is ReentrancyGuard, DCAConfigHandlerMock, I
 
             // execute mock swap
             (uint256 returnAmount, ) = mockExchange.swap(data.desc.srcToken, data.desc.dstToken, data.desc.amount);
-
-            // console.log(returnAmount, neededInSwap, data.desc.minReturnAmount);
 
             require(returnAmount >= neededInSwap && returnAmount >= data.desc.minReturnAmount, "InvalidReturnAmount");
 
@@ -236,32 +232,14 @@ abstract contract DCASwapHandlerMock is ReentrancyGuard, DCAConfigHandlerMock, I
                 SwapData memory swapDataMem = swapData[from_][to_][mask];
                 uint32 swapInterval = Intervals.maskToInterval(mask);
                 uint256 nextAvailable = ((swapDataMem.lastSwappedAt / swapInterval) + 1) * swapInterval;
-                console.log("_secondsUntilNextSwap", swapDataMem.lastSwappedAt, block.timestamp, nextAvailable);
-                console.log("_secondsUntilNextSwap", swapDataMem.lastSwappedAt / swapInterval, swapInterval);
 
                 if (swapDataMem.nextAmountToSwap > 0) {
                     if (nextAvailable <= block.timestamp) {
-                        console.log("nextAvailable <= block.timestamp", smallerIntervalBlocking);
-
                         return smallerIntervalBlocking;
                     } else {
-                        console.log(
-                            "nextAvailable - block.timestamp",
-                            nextAvailable,
-                            block.timestamp,
-                            nextAvailable - block.timestamp
-                        );
-
                         return nextAvailable - block.timestamp;
                     }
                 } else if (nextAvailable > block.timestamp) {
-                    console.log(
-                        "nextAvailable > block.timestamp",
-                        smallerIntervalBlocking,
-                        nextAvailable - block.timestamp,
-                        smallerIntervalBlocking
-                    );
-
                     smallerIntervalBlocking = smallerIntervalBlocking == 0
                         ? nextAvailable - block.timestamp
                         : smallerIntervalBlocking;

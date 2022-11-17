@@ -53,14 +53,19 @@ abstract contract DCAPositionHandlerMock is Permitable, ReentrancyGuard, DCAConf
         bytes memory permit_,
         uint256 amount_,
         uint256 noOfSwaps_,
-        uint32 swapInterval_
+        uint32 swapInterval_,
+        bool nativeFlag_
     ) public payable nonReentrant whenNotPaused returns (uint256) {
-        bool nativeFlag;
-        if (from_ == NATIVE_TOKEN) {
-            require(msg.value == amount_, "InvalidAmount");
-            _wrap(amount_);
-            from_ = address(wNative);
-            nativeFlag = true;
+        bool isFromNative;
+        if (nativeFlag_) {
+            isFromNative = from_ == address(wNative);
+
+            require(isFromNative || to_ == address(wNative), "NotWNativeToken");
+
+            if (isFromNative) {
+                require(msg.value == amount_, "InvalidAmount");
+                _wrap(amount_);
+            }
         }
 
         (UserPosition memory userPosition, uint256 positionId) = _create(
@@ -71,7 +76,7 @@ abstract contract DCAPositionHandlerMock is Permitable, ReentrancyGuard, DCAConf
             swapInterval_
         );
 
-        if (!nativeFlag) {
+        if (!isFromNative) {
             _permit(from_, permit_);
             IERC20(from_).safeTransferFrom(_msgSender(), address(this), amount_);
         }
@@ -85,7 +90,7 @@ abstract contract DCAPositionHandlerMock is Permitable, ReentrancyGuard, DCAConf
             userPosition.rate,
             userPosition.swapWhereLastUpdated + 1,
             userPosition.finalSwap,
-            nativeFlag
+            nativeFlag_
         );
 
         return positionId;
