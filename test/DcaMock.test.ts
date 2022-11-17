@@ -424,7 +424,7 @@ describe('DCAMock.test.ts', () => {
           await expect(
             dca
               .connect(signers[1])
-              .createPosition(tokenA.address, tokenB.address, '0x', amount, noOfSwaps, SwapIntervals.OneDay)
+              .createPosition(tokenA.address, tokenB.address, '0x', amount, noOfSwaps, SwapIntervals.OneDay, false)
           )
             .emit(dca, EVENTS.Created)
             .withArgs(
@@ -493,7 +493,7 @@ describe('DCAMock.test.ts', () => {
           await expect(
             dca
               .connect(signers[1])
-              .createPosition(NATIVE_ADDRESS, tokenB.address, '0x', amount, noOfSwaps, SwapIntervals.OneDay, {
+              .createPosition(wNative.address, tokenB.address, '0x', amount, noOfSwaps, SwapIntervals.OneDay, true, {
                 value: amount,
               })
           )
@@ -572,7 +572,7 @@ describe('DCAMock.test.ts', () => {
           await expect(
             dca
               .connect(signers[1])
-              .createPosition(tokenA.address, tokenB.address, '0x', amount1, noOfSwaps1, SwapIntervals.OneDay)
+              .createPosition(tokenA.address, tokenB.address, '0x', amount1, noOfSwaps1, SwapIntervals.OneDay, false)
           )
             .emit(dca, EVENTS.Created)
             .withArgs(
@@ -631,7 +631,7 @@ describe('DCAMock.test.ts', () => {
           await expect(
             dca
               .connect(signers[1])
-              .createPosition(tokenA.address, tokenB.address, '0x', amount2, noOfSwaps2, SwapIntervals.OneWeek)
+              .createPosition(tokenA.address, tokenB.address, '0x', amount2, noOfSwaps2, SwapIntervals.OneWeek, false)
           )
             .emit(dca, EVENTS.Created)
             .withArgs(
@@ -698,7 +698,15 @@ describe('DCAMock.test.ts', () => {
           await expect(
             dca
               .connect(signer)
-              .createPosition(tokenA.address, tokenB.address, permitCallData, amount, noOfSwaps, SwapIntervals.OneDay)
+              .createPosition(
+                tokenA.address,
+                tokenB.address,
+                permitCallData,
+                amount,
+                noOfSwaps,
+                SwapIntervals.OneDay,
+                false
+              )
           ).emit(dca, EVENTS.Created)
 
           expect(await tokenA.balanceOf(dca.address)).equal(amount)
@@ -712,7 +720,7 @@ describe('DCAMock.test.ts', () => {
           await expect(
             dca
               .connect(signers[1])
-              .createPosition(tokenA.address, tokenB.address, '0x', parseTokenA(100), 10, SwapIntervals.OneDay)
+              .createPosition(tokenA.address, tokenB.address, '0x', parseTokenA(100), 10, SwapIntervals.OneDay, false)
           ).revertedWith('Pausable: paused')
         })
 
@@ -720,13 +728,13 @@ describe('DCAMock.test.ts', () => {
           await expect(
             dca
               .connect(signers[1])
-              .createPosition(ADDRESS_ZERO, tokenB.address, '0x', parseTokenA(100), 10, SwapIntervals.OneDay)
+              .createPosition(ADDRESS_ZERO, tokenB.address, '0x', parseTokenA(100), 10, SwapIntervals.OneDay, false)
           ).revertedWith('ZeroAddress')
 
           await expect(
             dca
               .connect(signers[1])
-              .createPosition(tokenA.address, ADDRESS_ZERO, '0x', parseTokenA(100), 10, SwapIntervals.OneDay)
+              .createPosition(tokenA.address, ADDRESS_ZERO, '0x', parseTokenA(100), 10, SwapIntervals.OneDay, false)
           ).revertedWith('ZeroAddress')
         })
 
@@ -734,13 +742,15 @@ describe('DCAMock.test.ts', () => {
           await expect(
             dca
               .connect(signers[1])
-              .createPosition(tokenA.address, tokenA.address, '0x', parseTokenA(100), 10, SwapIntervals.OneDay)
+              .createPosition(tokenA.address, tokenA.address, '0x', parseTokenA(100), 10, SwapIntervals.OneDay, false)
           ).revertedWith('InvalidToken')
         })
 
         it('3.1.8 Should revert if amount is zero', async () => {
           await expect(
-            dca.connect(signers[1]).createPosition(tokenA.address, tokenB.address, '0x', 0, 10, SwapIntervals.OneDay)
+            dca
+              .connect(signers[1])
+              .createPosition(tokenA.address, tokenB.address, '0x', 0, 10, SwapIntervals.OneDay, false)
           ).revertedWith('ZeroAmount')
         })
 
@@ -748,7 +758,7 @@ describe('DCAMock.test.ts', () => {
           await expect(
             dca
               .connect(signers[1])
-              .createPosition(tokenA.address, tokenB.address, '0x', parseTokenA(100), 0, SwapIntervals.OneDay)
+              .createPosition(tokenA.address, tokenB.address, '0x', parseTokenA(100), 0, SwapIntervals.OneDay, false)
           ).revertedWith('ZeroSwaps')
         })
 
@@ -756,13 +766,13 @@ describe('DCAMock.test.ts', () => {
           await expect(
             dca
               .connect(signers[1])
-              .createPosition(tokenA.address, tokenC.address, '0x', parseTokenA(100), 10, SwapIntervals.OneDay)
+              .createPosition(tokenA.address, tokenC.address, '0x', parseTokenA(100), 10, SwapIntervals.OneDay, false)
           ).revertedWith('UnallowedToken')
 
           await expect(
             dca
               .connect(signers[1])
-              .createPosition(tokenD.address, tokenB.address, '0x', parseTokenD(100), 10, SwapIntervals.OneDay)
+              .createPosition(tokenD.address, tokenB.address, '0x', parseTokenD(100), 10, SwapIntervals.OneDay, false)
           ).revertedWith('UnallowedToken')
         })
 
@@ -770,20 +780,22 @@ describe('DCAMock.test.ts', () => {
           await expect(
             dca
               .connect(signers[1])
-              .createPosition(tokenA.address, tokenB.address, '0x', parseTokenA(100), 10, duration.minutes(30))
+              .createPosition(tokenA.address, tokenB.address, '0x', parseTokenA(100), 10, duration.minutes(30), false)
           ).revertedWith('InvalidInterval')
 
           // not allowed yet
           await expect(
             dca
               .connect(signers[1])
-              .createPosition(tokenA.address, tokenB.address, '0x', parseTokenA(100), 10, SwapIntervals.OneMonth)
+              .createPosition(tokenA.address, tokenB.address, '0x', parseTokenA(100), 10, SwapIntervals.OneMonth, false)
           ).revertedWith('IntervalNotAllowed')
         })
 
         it('3.1.12 Should revert if rate is invalid', async () => {
           await expect(
-            dca.connect(signers[1]).createPosition(tokenA.address, tokenB.address, '0x', 9, 10, SwapIntervals.OneDay)
+            dca
+              .connect(signers[1])
+              .createPosition(tokenA.address, tokenB.address, '0x', 9, 10, SwapIntervals.OneDay, false)
           ).revertedWith('InvalidRate')
         })
 
@@ -791,7 +803,7 @@ describe('DCAMock.test.ts', () => {
           await expect(
             dca
               .connect(signers[1])
-              .createPosition(tokenA.address, tokenB.address, '0x', parseTokenA(100), 10, SwapIntervals.FourHour)
+              .createPosition(tokenA.address, tokenB.address, '0x', parseTokenA(100), 10, SwapIntervals.FourHour, false)
           ).revertedWith('ERC20: insufficient allowance')
         })
 
@@ -819,7 +831,7 @@ describe('DCAMock.test.ts', () => {
           await expect(
             dca
               .connect(signer)
-              .createPosition(tokenA.address, tokenB.address, permitCallData, amount, 10, SwapIntervals.FourHour)
+              .createPosition(tokenA.address, tokenB.address, permitCallData, amount, 10, SwapIntervals.FourHour, false)
           ).revertedWith('InvalidPermit')
 
           // invalid nonce
@@ -836,7 +848,7 @@ describe('DCAMock.test.ts', () => {
           await expect(
             dca
               .connect(signer)
-              .createPosition(tokenA.address, tokenB.address, permitCallData, amount, 10, SwapIntervals.FourHour)
+              .createPosition(tokenA.address, tokenB.address, permitCallData, amount, 10, SwapIntervals.FourHour, false)
           ).revertedWith('InvalidPermit')
         })
 
@@ -847,7 +859,7 @@ describe('DCAMock.test.ts', () => {
           await expect(
             dca
               .connect(signers[1])
-              .createPosition(NATIVE_ADDRESS, tokenB.address, '0x', amount, noOfSwaps, SwapIntervals.OneDay, {
+              .createPosition(wNative.address, tokenB.address, '0x', amount, noOfSwaps, SwapIntervals.OneDay, true, {
                 value: amount.sub(1),
               })
           ).revertedWith('InvalidAmount')
@@ -855,7 +867,7 @@ describe('DCAMock.test.ts', () => {
           await expect(
             dca
               .connect(signers[1])
-              .createPosition(NATIVE_ADDRESS, tokenB.address, '0x', amount, noOfSwaps, SwapIntervals.OneDay, {
+              .createPosition(wNative.address, tokenB.address, '0x', amount, noOfSwaps, SwapIntervals.OneDay, true, {
                 value: amount.add(1),
               })
           ).revertedWith('InvalidAmount')
@@ -873,7 +885,7 @@ describe('DCAMock.test.ts', () => {
 
           await dca
             .connect(signers[1])
-            .createPosition(tokenA.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay)
+            .createPosition(tokenA.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay, false)
 
           const positionId = await dca.totalCreatedPositions()
 
@@ -947,7 +959,7 @@ describe('DCAMock.test.ts', () => {
 
           await dca
             .connect(signers[1])
-            .createPosition(NATIVE_ADDRESS, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay, {
+            .createPosition(wNative.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay, true, {
               value: oldAmount,
             })
 
@@ -1033,7 +1045,7 @@ describe('DCAMock.test.ts', () => {
 
           await dca
             .connect(signer)
-            .createPosition(tokenA.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay)
+            .createPosition(tokenA.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay, false)
 
           const positionId = await dca.totalCreatedPositions()
 
@@ -1089,7 +1101,7 @@ describe('DCAMock.test.ts', () => {
 
           await dca
             .connect(signers[1])
-            .createPosition(tokenA.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay)
+            .createPosition(tokenA.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay, false)
 
           const positionId = await dca.totalCreatedPositions()
 
@@ -1162,7 +1174,7 @@ describe('DCAMock.test.ts', () => {
 
           await dca
             .connect(signers[3])
-            .createPosition(tokenA.address, tokenB.address, '0x', parseTokenA(140), 2, SwapIntervals.OneDay)
+            .createPosition(tokenA.address, tokenB.address, '0x', parseTokenA(140), 2, SwapIntervals.OneDay, false)
           const rate2 = parseTokenA(140).div(2)
 
           await advanceTimeAndBlock(duration.days(1))
@@ -1285,7 +1297,7 @@ describe('DCAMock.test.ts', () => {
 
           await dca
             .connect(signers[1])
-            .createPosition(tokenA.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay)
+            .createPosition(tokenA.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay, false)
 
           const positionId = await dca.totalCreatedPositions()
 
@@ -1363,7 +1375,7 @@ describe('DCAMock.test.ts', () => {
 
           await dca
             .connect(signers[1])
-            .createPosition(NATIVE_ADDRESS, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay, {
+            .createPosition(wNative.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay, true, {
               value: oldAmount,
             })
 
@@ -1443,7 +1455,7 @@ describe('DCAMock.test.ts', () => {
 
           await dca
             .connect(signers[1])
-            .createPosition(tokenA.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay)
+            .createPosition(tokenA.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay, false)
 
           const positionId = await dca.totalCreatedPositions()
 
@@ -1517,7 +1529,7 @@ describe('DCAMock.test.ts', () => {
 
           await dca
             .connect(signers[1])
-            .createPosition(tokenA.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay)
+            .createPosition(tokenA.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay, false)
 
           const positionId = await dca.totalCreatedPositions()
 
@@ -1591,7 +1603,7 @@ describe('DCAMock.test.ts', () => {
 
           await dca
             .connect(signers[1])
-            .createPosition(tokenA.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay)
+            .createPosition(tokenA.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay, false)
 
           const positionId = await dca.totalCreatedPositions()
 
@@ -1616,13 +1628,13 @@ describe('DCAMock.test.ts', () => {
 
           await dca
             .connect(signers[1])
-            .createPosition(tokenA.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay)
+            .createPosition(tokenA.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay, false)
 
           positionId1 = await dca.totalCreatedPositions()
 
           await dca
             .connect(signers[1])
-            .createPosition(NATIVE_ADDRESS, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay, {
+            .createPosition(wNative.address, tokenB.address, '0x', oldAmount, oldNoOfSwap, SwapIntervals.OneDay, true, {
               value: oldAmount,
             })
 
@@ -1721,7 +1733,7 @@ describe('DCAMock.test.ts', () => {
 
         await dca
           .connect(signers[1])
-          .createPosition(tokenA.address, tokenB.address, '0x', amount1, noOfSwap1, SwapIntervals.FourHour)
+          .createPosition(tokenA.address, tokenB.address, '0x', amount1, noOfSwap1, SwapIntervals.FourHour, false)
 
         positionId1 = await dca.totalCreatedPositions()
 
@@ -1760,7 +1772,7 @@ describe('DCAMock.test.ts', () => {
 
         await dca
           .connect(signers[2])
-          .createPosition(tokenA.address, tokenB.address, '0x', amount2, noOfSwap2, SwapIntervals.FourHour)
+          .createPosition(tokenA.address, tokenB.address, '0x', amount2, noOfSwap2, SwapIntervals.FourHour, false)
 
         positionId2 = await dca.totalCreatedPositions()
 
@@ -1854,7 +1866,7 @@ describe('DCAMock.test.ts', () => {
 
         await dca
           .connect(signers[3])
-          .createPosition(tokenA.address, tokenB.address, '0x', amount3, noOfSwap3, SwapIntervals.FourHour)
+          .createPosition(tokenA.address, tokenB.address, '0x', amount3, noOfSwap3, SwapIntervals.FourHour, false)
 
         positionId3 = await dca.totalCreatedPositions()
 
@@ -2401,7 +2413,7 @@ describe('DCAMock.test.ts', () => {
 
           await dca
             .connect(signers[1])
-            .createPosition(NATIVE_ADDRESS, tokenB.address, '0x', amount1, noOfSwap1, SwapIntervals.FourHour, {
+            .createPosition(wNative.address, tokenB.address, '0x', amount1, noOfSwap1, SwapIntervals.FourHour, true, {
               value: amount1,
             })
           const positionId1 = await dca.totalCreatedPositions()
@@ -2494,7 +2506,7 @@ describe('DCAMock.test.ts', () => {
 
           await dca
             .connect(signers[1])
-            .createPosition(tokenA.address, wNative.address, '0x', amount1, noOfSwap1, SwapIntervals.FourHour)
+            .createPosition(tokenA.address, wNative.address, '0x', amount1, noOfSwap1, SwapIntervals.FourHour, false)
 
           const positionId1 = await dca.totalCreatedPositions()
 
@@ -2641,7 +2653,7 @@ describe('DCAMock.test.ts', () => {
 
         await dca
           .connect(signers[1])
-          .createPosition(tokenA.address, tokenB.address, '0x', amount1, noOfSwap1, SwapIntervals.FourHour)
+          .createPosition(tokenA.address, tokenB.address, '0x', amount1, noOfSwap1, SwapIntervals.FourHour, false)
 
         positionId1 = await dca.totalCreatedPositions()
 
@@ -2679,7 +2691,7 @@ describe('DCAMock.test.ts', () => {
 
         await dca
           .connect(signers[2])
-          .createPosition(tokenA.address, tokenB.address, '0x', amount2, noOfSwap2, SwapIntervals.FourHour)
+          .createPosition(tokenA.address, tokenB.address, '0x', amount2, noOfSwap2, SwapIntervals.FourHour, false)
 
         positionId2 = await dca.totalCreatedPositions()
 
@@ -2911,7 +2923,7 @@ describe('DCAMock.test.ts', () => {
 
           await dca
             .connect(signers[1])
-            .createPosition(tokenA.address, wNative.address, '0x', amount1, noOfSwap1, SwapIntervals.FourHour)
+            .createPosition(tokenA.address, wNative.address, '0x', amount1, noOfSwap1, SwapIntervals.FourHour, false)
 
           positionId1 = await dca.totalCreatedPositions()
 
@@ -2949,7 +2961,7 @@ describe('DCAMock.test.ts', () => {
 
           await dca
             .connect(signers[2])
-            .createPosition(tokenA.address, wNative.address, '0x', amount2, noOfSwap2, SwapIntervals.FourHour)
+            .createPosition(tokenA.address, wNative.address, '0x', amount2, noOfSwap2, SwapIntervals.FourHour, false)
 
           const positionId2 = await dca.totalCreatedPositions()
 
@@ -3181,7 +3193,7 @@ describe('DCAMock.test.ts', () => {
 
           await dca
             .connect(signers[3])
-            .createPosition(tokenA.address, wNative.address, '0x', amount2, noOfSwap2, SwapIntervals.FourHour)
+            .createPosition(tokenA.address, wNative.address, '0x', amount2, noOfSwap2, SwapIntervals.FourHour, false)
 
           const positionId = await dca.totalCreatedPositions()
 
@@ -3242,7 +3254,7 @@ describe('DCAMock.test.ts', () => {
           // position 1
           await dca
             .connect(signers[1])
-            .createPosition(tokenA.address, tokenB.address, '0x', amount1, noOfSwap1, SwapIntervals.FourHour)
+            .createPosition(tokenA.address, tokenB.address, '0x', amount1, noOfSwap1, SwapIntervals.FourHour, false)
 
           // ------------------------------------
 
@@ -3343,7 +3355,7 @@ describe('DCAMock.test.ts', () => {
           // position 2
           await dca
             .connect(signers[3])
-            .createPosition(tokenA.address, tokenB.address, '0x', amount3, noOfSwap3, SwapIntervals.FourHour)
+            .createPosition(tokenA.address, tokenB.address, '0x', amount3, noOfSwap3, SwapIntervals.FourHour, false)
 
           const nextSwapAfter = swapData.lastSwappedAt
             .div(SwapIntervals.FourHour)
@@ -3532,7 +3544,7 @@ describe('DCAMock.test.ts', () => {
 
           await dca
             .connect(signers[2])
-            .createPosition(tokenA.address, tokenB.address, '0x', amount2, noOfSwap2, SwapIntervals.OneDay)
+            .createPosition(tokenA.address, tokenB.address, '0x', amount2, noOfSwap2, SwapIntervals.OneDay, false)
 
           await advanceTimeAndBlock(duration.days(1))
 
@@ -3637,7 +3649,7 @@ describe('DCAMock.test.ts', () => {
 
           await dca
             .connect(signers[1])
-            .createPosition(tokenA.address, tokenB.address, '0x', parseTokenA(100), 10, SwapIntervals.FourHour)
+            .createPosition(tokenA.address, tokenB.address, '0x', parseTokenA(100), 10, SwapIntervals.FourHour, false)
 
           const rate = parseTokenA(100).div(10)
           const details = calculateAmountAndFee(rate, swapFee, platformFee)
